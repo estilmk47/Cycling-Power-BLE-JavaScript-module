@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spin Bike</title>
+    <link rel="stylesheet" href="style.css">
+
+</head>
+<body>
+    <div id="content">
+        <div id="time">
+            <div id="clock_time">--:--:--</div>
+            <div id="lap_time" style="color: red;">--:--:--</div>
+            <div id="total_time">--:--:--</div>
+        </div>
+        <div id="main_display">
+            <div id="main_display_options">
+                <div id="toggle_graphics">BODY BIKE</div>
+                <div id="settings">Settings</div>
+                <div id="info">Info</div>
+            </div>
+            <div id="graphics_canvas">
+                <canvas id="canvas" width="100%"></canvas>
+            </div>
+        </div>
+        <div id="session_options">
+            <button id="start">START</button>
+            <button id="lap">LAP</button>
+            <button id="pause">PAUSE</button>
+            <button id="stop">STOP</button>
+            <button id="new">NEW</button>
+            <button id="download">DOWNLOAD</button>
+        </div>
+        <div id="session_data">
+            <div id="session_data_lap_total">Total</div>
+            <div class="session_data_line">
+                <div><img src="assets/Energy.png" width="30px" height="30px"><div id="kCal_acc"></div></div>
+                <div id="kCal_avg"></div>
+            </div>
+            <div class="session_data_line">
+                <div><img src="assets/Speed.png" width="30px" height="30px"><div  id="distance"></div></div>
+                <div id="speed"></div>
+            </div>
+            <div class="session_data_line">
+                <div><img src="assets/HeartRate.png" width="30px" height="30px"><div id="heart_rate_max"></div></div>
+                <div id="heart_rate_avg"></div>
+            </div>
+            <div class="session_data_line">
+                <div><img src="assets/Cadence.png" width="30px" height="30px"><div id="cadence_max"></div></div>
+                <div id="cadence_avg"></div>
+            </div>
+            <div class="session_data_line">
+                <div><img src="assets/Power.png" width="30px" height="30px"><div id="power_max"></div></div>
+                <div id="power_avg"></div>
+            </div>
+        </div>
+    </div>
+    <div id="prompt">
+        <div id="prompt_background"></div>
+        <div id="prompt_content">
+            <div id="prompt_content_exit_line">
+                <div id="prompt_exit">EXIT</div>
+            </div>
+            <div id="prompt_content_display">
+                <div id="settings_prompt">
+                    <div id="ble_bike">
+                        <div id="bike_icon">
+                            <img src="assets/Bike.png" width="100%" height="100%">
+                        </div>
+                        <div id="bike_name">Bike</div>
+                    </div>
+                    <div id="ble_hr">
+                        <div id="hr_icon">
+                            <img src="assets/HeartRate.png" width="100%" height="100%">
+                        </div>
+                        <div id="hr_name">Heart Rate Monitor</div>
+                    </div>
+                    <div id="settings_input">
+                        <div>
+                            <div>Weight:</div><input type="text" placeholder="Weight [kg]" value="80"><br>
+                        </div>
+                        <div>
+                            <div>FTP:</div><input type="text" placeholder="FTP [W]" value="370">
+                        </div>                         
+                    </div>
+                </div>
+                <div id="info_prompt">
+
+                </div>
+            </div>
+        </div>
+        
+    </div>
+    <script type="module" src="main.js"></script>
+</body>
+</html>

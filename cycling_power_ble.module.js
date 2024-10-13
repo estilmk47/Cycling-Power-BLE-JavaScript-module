@@ -37,78 +37,96 @@ class Bike {
         FILTERED: 'filtered'
     });
 
-    constructor(){
-        this.self = null;
-        this.name = null;
-        this._mode = Bike.MODES.RAW;
-        this._connecting = false;
+    #mode = Bike.MODES.RAW;
+    #connecting = false;
         
-        this._powerAvailable = false;
-        this._speedAvailable = false;
-        this._cadenceAvailable = false;
+    #powerAvailable = false;
+    #speedAvailable = false;
+    #cadenceAvailable = false;
 
-        this._notificationTimestamp = null;
-        this._power = 0;
-        this._accumulatedEnergy = 0;
-        this._accumulatedDistance = 0;
-        this._speed = 0;
-        this._cadence = 0;  //rpm
+    #notificationTimestamp = null;
+    #power = 0;
+    #accumulatedEnergy = 0;
+    #accumulatedDistance = 0;
+    #speed = 0;
+    #cadence = 0;  //rpm
 
+    constructor(){
+        this.self = null; // The user may want to tamper with this (It feels strange, but we'll allow it)
+        this.name = null;
+        
         //BLE CHARACTERISTIC VALUES
         this.wheelRevolutionData = new RevolutionData();
         this.crankRevolutionData = new RevolutionData();
     }
 
-    get mode(){ return this._mode; }
-    get connecting(){ return this._connecting; }
+    get isConnected() { if(this.self){ return true; } return false; }
+    get mode(){ return this.#mode; }
+    get connecting(){ return this.#connecting; }
 
-    get powerAvailable(){ return this._powerAvailable; }
-    get speedAvailable(){ return this._speedAvailable; }
-    get cadenceAvailable(){ return this._cadenceAvailable; }
-    get timestamp(){ return this._notificationTimestamp; }
+    get powerAvailable(){ return this.#powerAvailable; }
+    get speedAvailable(){ return this.#speedAvailable; }
+    get cadenceAvailable(){ return this.#cadenceAvailable; }
+    get timestamp(){ return this.#notificationTimestamp; }
 
 
     #powerBuffer = [];
-    #powerFilter = [];
+    #powerFilter = [3, 2, 1];
     get power(){
-        if (this._mode == Bike.MODES.FILTERED){
-            // TODO
+        if (this.#mode == Bike.MODES.FILTERED){
+            return this.#weightedAverage(this.#powerBuffer, this.#powerFilter);
         }
-        return this._power;
+        return this.#power;
     }
 
     #speedBuffer = [];
-    #speedFilter = [];
+    #speedFilter = [3, 2, 1];
     get speed(){
-        if (this._mode == Bike.MODES.FILTERED){
-            // TODO 
+        if (this.#mode == Bike.MODES.FILTERED){
+            return this.#weightedAverage(this.#speedBuffer, this.#speedFilter);
         }
-        return this._speed;
+        return this.#speed;
     }
 
     #cadenceBuffer = [];
-    #cadenceFilter = [];
+    #cadenceFilter = [3, 2, 1];
     get cadence(){
-        if (this._mode == Bike.MODES.FILTERED){
-            // TODO
+        if (this.#mode == Bike.MODES.FILTERED){
+            return this.#weightedAverage(this.#cadenceBuffer, this.#cadenceFilter);
         }
-        return this._cadence;
+        return this.#cadence;
     }
+
+    #weightedAverage(signal, weights){
+        let weightSum = 0;
+        let sum = 0;
+        for(var i = 0; i < signal.length; i++){
+            // Weights are read through in the reverse order to reflect the 'convolution' - notation/method/operation
+            let weightIndex = weights.length-1-i;
+            let weightIndexInRange = (weightIndex >= 0 && weightIndex < weights.length)
+            if (!weightIndexInRange) break; // To be true to the source material: the weight should be set to zero, but this achive the same with less work
+            let weight = weights[weightIndex];
+            weightSum += weight;
+            sum = weight*signal[i];
+        }
+        return weightSum ? sum/weightSum : 0;
+    }
+
 
     setMode(mode=Bike.MODES.FILTERED){
         if (
             mode == Bike.MODES.FILTERED ||
             mode == Bike.MODES.RAW
         ){
-            this._mode
+            this.#mode = mode;
         }
         else{
             console.warn("Was not able to set BLE bike mode");
         }
     }
 
-    get accumulatedEnergy(){ return this._accumulatedEnergy; }
-    get accumulatedDistance(){ return this._accumulatedDistance; }
+    get accumulatedEnergy(){ return this.#accumulatedEnergy; }
+    get accumulatedDistance(){ return this.#accumulatedDistance; }
 
     #findPayloadIndex(flag, flagIndex){
         if(flag[flagIndex]){
@@ -127,7 +145,7 @@ class Bike {
     }
 
     connect(){
-        this._connecting = true;
+        this.#connecting = true;
 
         if(this.self != null){
             this.self.gatt.disconnect();
@@ -168,8 +186,8 @@ class Bike {
                     let now = new Date().getTime();
 
                     let dt  = 0; // [s]
-                    if(this._notificationTimestamp){
-                        dt  = (now - this._notificationTimestamp)/1000; // ms -> s
+                    if(this.#notificationTimestamp){
+                        dt  = (now - this.#notificationTimestamp)/1000; // ms -> s
                     }
                     if(dt > 3){
                         dt  = 0; //Effect: Asume user has disconnected
@@ -179,29 +197,30 @@ class Bike {
                     flag = convertTo16BitArray(flag);
 
                     //Energy
-                    if(flag[Bike.FLAG_FIELD._AccumulatedEnergy.index]){
+                    if(flag[Bike.FLAG_FIELD.AccumulatedEnergy.index]){
                         let payloadIndex = this.#findPayloadIndex(
                             flag,
-                            Bike.FLAG_FIELD._AccumulatedEnergy.index
+                            Bike.FLAG_FIELD.AccumulatedEnergy.index
                         );
                         
                         let data = event.target.value.getUint8(payloadIndex) + event.target.value.getUint8(payloadIndex+1)*index1multiplier;
-                        this._accumulatedEnergy = data; // Given in kJ
+                        this.#accumulatedEnergy = data; // Given in kJ
                         //console.log(data) 
                     }
-                    else if(this._powerAvailable){
+                    else if(this.#powerAvailable){
                         // CONSIDER: find a more reliable method
-                        this._accumulatedEnergy += dt*this._power/1000; // J -> kJ
+                        this.#accumulatedEnergy += dt*this.#power/1000; // J -> kJ
                     }
 
                     //Power 
-                    this._powerAvailable = true;
+                    this.#powerAvailable = true;
                     let payloadIndex = 2;
-                    this._power = event.target.value.getUint8(payloadIndex)*index0multiplier + event.target.value.getUint8(payloadIndex+1)*index1multiplier;
-                    
+                    this.#power = event.target.value.getUint8(payloadIndex)*index0multiplier + event.target.value.getUint8(payloadIndex+1)*index1multiplier;
+                    this.#powerBuffer.push(this.#power);
+                    while(this.#powerBuffer.length > this.#powerFilter.length) this.#powerBuffer.shift();
                     //Speed & Distance
                     if(flag[Bike.FLAG_FIELD.RevolutionData.index]){
-                        this._speedAvailable = true;
+                        this.#speedAvailable = true;
                         let payloadIndex = this.#findPayloadIndex(
                             flag,
                             Bike.FLAG_FIELD.RevolutionData.index
@@ -221,26 +240,28 @@ class Bike {
 
                             if(dTime > 0){
                                 rpm = (configuration ? 2048 : 1024)*60*dRevs/dTime;
-                                if(rpm) this.wheelRevolutionData.lastNonZeroValue = rpm;  // CONSIDER: Finding a better solution to speed blips
+                                if(rpm) this.wheelRevolutionData.nonZeroValue = rpm;  // CONSIDER: Finding a better solution to speed blips
                             }
                         }
                         else{
                             this.wheelRevolutionData.prevStaleness = false;
                         }
-                        if(!rpm && this._power) rpm = this.wheelRevolutionData.lastNonZeroValue;
+                        if(!rpm && this.#power) rpm = this.wheelRevolutionData.nonZeroValue;
 
                         this.wheelRevolutionData.prevRevs = wheelRevs;
                         this.wheelRevolutionData.prevTime = wheelTime;
 
                         const wheelRadius = 0.311; // [meters] 700x18c
                         const kmh_rpm = 3/25*Math.PI*wheelRadius;
-                        this._speed = kmh_rpm*rpm;
-                        this._accumulatedDistance = wheelRevs*2*Math.PI*wheelRadius;
+                        this.#speed = kmh_rpm*rpm;
+                        this.#speedBuffer.push(this.#speed);
+                        while(this.#speedBuffer.length > this.#speedFilter.length) this.#speedBuffer.shift();
+                        this.#accumulatedDistance = wheelRevs*2*Math.PI*wheelRadius;
                     }        
 
                     //Cadence
                     if(flag[Bike.FLAG_FIELD.CrankRevolutionData.index]){
-                        this._cadenceAvailable = true;
+                        this.#cadenceAvailable = true;
                         let payloadIndex = this.#findPayloadIndex(
                             flag,
                             Bike.FLAG_FIELD.CrankRevolutionData.index
@@ -259,10 +280,10 @@ class Bike {
 
                             if(dTime > 0 && dRevs >= 0){    //CONSIDER: finding a better solution to roll over / overflows
                                 rpm = 1024*60*dRevs/dTime;
-                                if(rpm) this.crankRevolutionData.lastNonZeroValue = rpm;
+                                if(rpm) this.crankRevolutionData.nonZeroValue = rpm;
                             }
                             else{                       
-                                rpm = this._cadence;       //Use old value in case of annomolies in the data
+                                rpm = this.#cadence;       //Use old value in case of annomolies in the data
                             }
                         }
                         else{
@@ -271,10 +292,12 @@ class Bike {
 
                         this.crankRevolutionData.prevRevs = crankRevs;
                         this.crankRevolutionData.prevTime = crankTime;
-                        this._cadence = rpm;
+                        this.#cadence = rpm;
+                        this.#cadenceBuffer.push(this.#cadence);
+                        while(this.#cadenceBuffer.length > this.#cadenceFilter.length) this.#cadenceBuffer.shift();
                     }     
 
-                    this._lastNotificationTimestamp = now;  
+                    this.#notificationTimestamp = now;  
                     //CONSIDER implement other/more features (as seen in Bike.FLAG_FIELD)
                 })
             })
@@ -284,46 +307,48 @@ class Bike {
             }); 
         }
 
-        this._powerAvailable = true;    
-        this._connecting = false; //Not _connecting anymore since we now are fully connected 
+        this.#powerAvailable = true;    
+        this.#connecting = false; //Not _connecting anymore since we now are fully connected 
     }
 
     onDisconnected(event){
-        //const device = event.target;
         this.self = null;
         this.name = null; 
 
-        this._connecting = false;
-        this._notificationTimestamp = null;
+        this.#connecting = false;
+        this.#notificationTimestamp = null;
 
-        this._powerAvailable = false;
-        this._speedAvailable = false;
-        this._cadenceAvailable = false;
-        this._power = 0;
-        this._speed = 0;
-        this._cadence = 0; 
-        this._accumulatedEnergy = 0;
-        this._accumulatedDistance = 0;
+        this.#powerAvailable = false;
+        this.#speedAvailable = false;
+        this.#cadenceAvailable = false;
+        this.#power = 0;
+        this.#speed = 0;
+        this.#cadence = 0; 
+        this.#accumulatedEnergy = 0;
+        this.#accumulatedDistance = 0;
 
+        // TODO: make private
         this.wheelRevolutionData.reset();
         this.crankRevolutionData.reset();
     }        
 }
 
 class HeartRate {
+
+    #heartRate = null;
+    #accumulatedHeartBeats = 0;
+    #notificationTimestamp = null;
+
     constructor(){
         this.self = null;
-        this.name = null;
-
-        this._heartRate = null;
-        this._accumulatedHeartBeats = 0;
-        this._notificationTimestamp = null;
+        this.name = null;        
     }
+    get isConnected() { if(this.self){ return true; } return false; }
     get heartRate(){
-        return this._heartRate;
+        return this.#heartRate;
     }
     get accumulatedHeartBeats(){
-        return Math.floor(this._accumulatedHeartBeats);
+        return Math.floor(this.#accumulatedHeartBeats);
     }
 
     connect(){
@@ -359,13 +384,13 @@ class HeartRate {
                 characteristic.startNotifications();
                 characteristic.addEventListener("characteristicvaluechanged", (event) => {
                     let now = new Date().getTime();
-                    let dt = (now - this._notificationTimestamp)/1000; // [s]
+                    let dt = (now - this.#notificationTimestamp)/1000; // [s]
                     if (dt > 0 && dt < 6){
-                        let beats = dt/60*this._heartRate;
-                        this._accumulatedHeartBeats += beats;
+                        let beats = dt/60*this.#heartRate;
+                        this.#accumulatedHeartBeats += beats;
                     }
-                    this._notificationTimestamp = now;
-                    this._heartRate = event.target.value.getUint8(1); // TODO: Fix -> Max heartrate 255, then rollover
+                    this.#notificationTimestamp = now;
+                    this.#heartRate = event.target.value.getUint8(1); // TODO: Fix -> Max heartrate 255, then rollover
                 });        
             })
             .catch((error) => {
@@ -379,26 +404,26 @@ class HeartRate {
         this.self = null;
         this.name = null;
         this.heartRate = null;
-        this._notificationTimestamp = null;
+        this.#notificationTimestamp = null;
     }
 
     resetAccumulator(){
-        this._accumulatedHeartBeats = 0;
+        this.#accumulatedHeartBeats = 0;
     }
     
 }
 
 class SRAT {
+    #connecting = false;
     constructor(){
         this.self = null;
-        this.name = null;
-        this._connecting = false;
+        this.name = null;        
         this.mode = 0;
         this.bts  = [false, false, false, false, false, false];
         this.axis = {a1: 0, a2: 0, roll: 0, pitch: 0, yaw: 0};
     }
     connect(){
-        this._connecting = true;
+        this.#connecting = true;
         if(this.self != null){
             this.self.gatt.disconnect();
         }    
@@ -431,7 +456,7 @@ class SRAT {
             .then(characteristic => {
                 characteristic.startNotifications();
                 characteristic.addEventListener("characteristicvaluechanged", (event) => this.#notifyHandler(event, this));  
-                this._connecting = false; //Not _connecting anymore since we now are fully connected 
+                this.#connecting = false; //Not _connecting anymore since we now are fully connected 
             })
             .catch((error) => {
                 console.error(`Something went wrong. ${error}`);
@@ -439,13 +464,13 @@ class SRAT {
             });
         }
         else{
-            this._connecting = false;
+            this.#connecting = false;
         }
     }
     onDisconnected(event){
         this.self = null;
         this.name = null;
-        this._connecting = false;
+        this.#connecting = false;
         this.mode = 0;
         this.bts  = [false, false, false, false, false, false];
         this.axis = {a1: 0, a2: 0, roll: 0, pitch: 0, yaw: 0};
@@ -467,6 +492,35 @@ class SRAT {
 
 
 class SessionData{
+    #sample = false;
+    #timeStart = 0; // Given in Epoch -> new Date().getTime();
+    #timeEnd = 0;   // Given in Epoch -> new Date().getTime(); TODO: Consider removing since it is ambiguous
+
+    #laps = [0];    // Given in dt [s] since timeStart
+    #lapIndex = 0;
+    
+    // Data Matrix
+    #hr = [];
+    #power = [];
+    #cadence = [];
+    #speed = [];
+    #accumulatedTime = [];
+    #accumulatedDistance = [];
+    #accumulatedEnergy = [];
+    #accumulatedHeartBeats = [];
+
+    // Storing for easy retrieving without searching
+    #maxPwr = 0;
+    #maxPulse = 0;
+    #maxCadance = 0;
+    #maxSpeed = 0;
+    #lapMaxPwr = 0;
+    #lapMaxPulse = 0;
+    #lapMaxCadence = 0;
+    #lapMaxSpeed = 0;
+
+    // TODO: latitude and lngitude support
+
     constructor(){
         this.restart();
     }
@@ -477,73 +531,79 @@ class SessionData{
     })
 
     restart(){
-        this._sample = false;
-        this._timeStart = 0; // Given in Epoch -> new Date().getTime();
-        this._timeEnd = 0;   // Given in Epoch -> new Date().getTime(); TODO: Consider removing since it is ambiguous
+        this.#sample = false;
+        this.#timeStart = 0; // Given in Epoch -> new Date().getTime();
+        this.#timeEnd = 0;   // Given in Epoch -> new Date().getTime(); TODO: Consider removing since it is ambiguous
 
-        this._laps = [0];    // Given in dt [s] since timeStart
-        this._lapIndex = 0;
+        this.#laps = [0];    // Given in dt [s] since timeStart
+        this.#lapIndex = 0;
         
         // Data Matrix
-        this._hr = [];
-        this._power = [];
-        this._cadence = [];
-        this._speed = [];
-        this._accumulatedTime = [];
-        this._accumulatedDistance = [];
-        this._accumulatedEnergy = [];
-        this._accumulatedHeartBeats = [];
+        this.#hr = [];
+        this.#power = [];
+        this.#cadence = [];
+        this.#speed = [];
+        this.#accumulatedTime = [];
+        this.#accumulatedDistance = [];
+        this.#accumulatedEnergy = [];
+        this.#accumulatedHeartBeats = [];
 
         // Storing for easy retrieving without searching
-        this._maxPwr = 0;
-        this._maxPulse = 0;
-        this._maxCadance = 0;
-        this._maxSpeed = 0;
-        this._lapMaxPwr = 0;
-        this._lapMaxPulse = 0;
-        this._lapMaxCadence = 0;
-        this._lapMaxSpeed = 0;
+        this.#maxPwr = 0;
+        this.#maxPulse = 0;
+        this.#maxCadance = 0;
+        this.#maxSpeed = 0;
+        this.#lapMaxPwr = 0;
+        this.#lapMaxPulse = 0;
+        this.#lapMaxCadence = 0;
+        this.#lapMaxSpeed = 0;
     }
 
     get startTime(){
-        return this._timeStart;
+        return this.#timeStart;
+    }
+    get endTime(){
+        if(this.#timeEnd){
+            return this.#timeEnd
+        }
     }
 
     start(){
-        if (this._timeStart != 0) return;
-        this.timeStart = new Date().getTime();
-        this._sample = true;
+        if (this.#timeStart != 0) return;
+        this.#timeStart = new Date().getTime();
+        this.#timeEnd = 0;
+        this.#sample = true;
     }
     stop(){
-        if (this._timeEnd != 0) return;
-        this._timeEnd = new Date().getTime();
-        this._sample = false;
+        if (this.#timeEnd != 0) return;
+        this.#timeEnd = new Date().getTime();
+        this.#sample = false;
     }
     lap(){
-        if(this.timeStart == 0) return;
-        let dt = (new Date().getTime() - this.timeStart)/1000; // [s]
-        this._laps.push(dt);
-        this._lapIndex = this._power.length-1; // Can be any of the data-arrays as they all should have the same length
-        this._lapMaxPwr = 0;
-        this._lapMaxPulse = 0;
-        this._lapMaxCadence = 0;
-        this._lapMaxSpeed = 0;
+        if(this.#timeStart == 0) return;
+        let dt = (new Date().getTime() - this.#timeStart)/1000; // [s]
+        this.#laps.push(dt);
+        this.#lapIndex = this.#power.length-1; // Can be any of the data-arrays as they all should have the same length
+        this.#lapMaxPwr = 0;
+        this.#lapMaxPulse = 0;
+        this.#lapMaxCadence = 0;
+        this.#lapMaxSpeed = 0;
     }
 
     sample(pwr, cadence = null, speed = null, accDist = null, accEnergy = null, hr = null, accHr = null){
-        if(!this._sample) return;
+        if(!this.#sample) return;
         if(pwr == undefined || pwr == null) return;
         
         let dt = new Date().getTime() - this.timeStart;
 
-        this._power.push(pwr);
-        this._cadence.push(cadence);
-        this._speed.push(speed);
-        this._accumulatedDistance.push(accDist);
-        this._accumulatedEnergy.push(accEnergy);
-        this._hr.push(hr);
-        this._accumulatedHeartBeats.push(accHr);
-        this._accumulatedTime.push(dt);
+        this.#power.push(pwr);
+        this.#cadence.push(cadence);
+        this.#speed.push(speed);
+        this.#accumulatedDistance.push(accDist);
+        this.#accumulatedEnergy.push(accEnergy);
+        this.#hr.push(hr);
+        this.#accumulatedHeartBeats.push(accHr);
+        this.#accumulatedTime.push(dt);
 
         if (pwr && pwr > this.maxPwr) this.maxPwr = pwr;
         if (cadence && cadence > this.maxCadance) this.maxCadance = cadence;
@@ -559,12 +619,12 @@ class SessionData{
     //max, average
     getPower(type = SessionData.TYPES.TOTAL){
         if(type == SessionData.TYPES.TOTAL){
-            let readThrough = this.#readThrough(this._power, this._accumulatedTime, 0, this._power.lenght-1);
-            return {max: this._maxPwr, avg: readThrough.sum/readThrough.dt}
+            let readThrough = this.#readThrough(this.#power, this.#accumulatedTime, 0, this.#power.lenght-1);
+            return {max: this.#maxPwr, avg: readThrough.sum/readThrough.dt}
         }
         else if(type == SessionData.TYPES.LAP){
-            let readThrough = this.#readThrough(this._power, this._accumulatedTime, this._lapIndex, this._power.lenght-1)
-            return {max: this._lapMaxPwr, avg: readThrough.sum/readThrough.dt}
+            let readThrough = this.#readThrough(this.#power, this.#accumulatedTime, this.#lapIndex, this.#power.lenght-1)
+            return {max: this.#lapMaxPwr, avg: readThrough.sum/readThrough.dt}
         }
         else{
             return null;
@@ -572,12 +632,12 @@ class SessionData{
     }
     getSpeed(type = SessionData.TYPES.TOTAL){
         if(type == SessionData.TYPES.TOTAL){
-            let readThrough = this.#readThrough(this._speed, this._accumulatedTime, 0, this._speed.length-1);
-            return {max: this._maxSpeed, avg: readThrough.sum/readThrough.dt}
+            let readThrough = this.#readThrough(this.#speed, this.#accumulatedTime, 0, this.#speed.length-1);
+            return {max: this.#maxSpeed, avg: readThrough.sum/readThrough.dt}
         }
         else if(type == SessionData.TYPES.LAP){
-            let readThrough = this.#readThrough(this._speed, this._accumulatedTime, this._lapIndex, this._speed.length-1)
-            return {max: this._lapMaxSpeed, avg: readThrough.sum/readThrough.dt}
+            let readThrough = this.#readThrough(this.#speed, this.#accumulatedTime, this.#lapIndex, this.#speed.length-1)
+            return {max: this.#lapMaxSpeed, avg: readThrough.sum/readThrough.dt}
         }
         else{
             return null;
@@ -585,12 +645,12 @@ class SessionData{
     }
     getCadence(type = SessionData.TYPES.TOTAL){
         if(type == SessionData.TYPES.TOTAL){
-            let readThrough = this.#readThrough(this._cadence, this._accumulatedTime, 0, this._cadence.length-1);
-            return {max: this._maxCadance, avg: readThrough.sum/readThrough.dt}
+            let readThrough = this.#readThrough(this.#cadence, this.#accumulatedTime, 0, this.#cadence.length-1);
+            return {max: this.#maxCadance, avg: readThrough.sum/readThrough.dt}
         }
         else if(type == SessionData.TYPES.LAP){
-            let readThrough = this.#readThrough(this._cadence, this._accumulatedTime, this._lapIndex, this._cadence.length-1)
-            return {max: this._lapMaxCadence, avg: readThrough.sum/readThrough.dt}
+            let readThrough = this.#readThrough(this.#cadence, this.#accumulatedTime, this.#lapIndex, this.#cadence.length-1)
+            return {max: this.#lapMaxCadence, avg: readThrough.sum/readThrough.dt}
         }
         else{
             return null;
@@ -598,12 +658,12 @@ class SessionData{
     }
     getHeartBeats(type = SessionData.TYPES.TOTAL){
         if(type == SessionData.TYPES.TOTAL){
-            let readThrough = this.#readThrough(this._hr, this._accumulatedTime, 0, this._hr.length-1);
-            return {max: this._maxPulse, avg: readThrough.sum/readThrough.dt}
+            let readThrough = this.#readThrough(this.#hr, this.#accumulatedTime, 0, this.#hr.length-1);
+            return {max: this.#maxPulse, avg: readThrough.sum/readThrough.dt}
         }
         else if(type == SessionData.TYPES.LAP){
-            let readThrough = this.#readThrough(this._hr, this._accumulatedTime, this._lapIndex, this._hr.length-1)
-            return {max: this._lapMaxPulse, avg: readThrough.sum/readThrough.dt}
+            let readThrough = this.#readThrough(this.#hr, this.#accumulatedTime, this.#lapIndex, this.#hr.length-1)
+            return {max: this.#lapMaxPulse, avg: readThrough.sum/readThrough.dt}
         }
         else{
             return null;
@@ -613,12 +673,12 @@ class SessionData{
     // acc, phr
     getDistance(type = SessionData.TYPES.TOTAL){
         if(type == SessionData.TYPES.TOTAL){
-            let readThrough = this.#readThrough(this._accumulatedDistance, this._accumulatedTime, 0, this._accumulatedDistance.length-1);
+            let readThrough = this.#readThrough(this.#accumulatedDistance, this.#accumulatedTime, 0, this.#accumulatedDistance.length-1);
             let distance = readThrough.end-readThrough.start;
             return {acc: distance, phr: distance/readThrough.dt*3600}
         }
         else if(type == SessionData.TYPES.LAP){
-            let readThrough = this.#readThrough(this._accumulatedDistance, this._accumulatedTime, this._lapIndex, this._accumulatedDistance.length-1);
+            let readThrough = this.#readThrough(this.#accumulatedDistance, this.#accumulatedTime, this.#lapIndex, this.#accumulatedDistance.length-1);
             let distance = readThrough.end-readThrough.start;
             return {acc: distance, phr: distance/readThrough.dt*3600}
         }
@@ -628,12 +688,12 @@ class SessionData{
     }
     getEnergy(type = SessionData.TYPES.TOTAL){
         if(type == SessionData.TYPES.TOTAL){
-            let readThrough = this.#readThrough(this._accumulatedEnergy, this._accumulatedTime, 0, this._accumulatedEnergy.length-1);
+            let readThrough = this.#readThrough(this.#accumulatedEnergy, this.#accumulatedTime, 0, this.#accumulatedEnergy.length-1);
             let energy = readThrough.end-readThrough.start;
             return {acc: energy, phr: energy/readThrough.dt*3600}
         }
         else if(type == SessionData.TYPES.LAP){
-            let readThrough = this.#readThrough(this._accumulatedEnergy, this._accumulatedTime, this._lapIndex, this._accumulatedEnergy.length-1);
+            let readThrough = this.#readThrough(this.#accumulatedEnergy, this.#accumulatedTime, this.#lapIndex, this.#accumulatedEnergy.length-1);
             let energy = readThrough.end-readThrough.start;
             return {acc: energy, phr: energy/readThrough.dt*3600}
         }
@@ -657,8 +717,8 @@ class SessionData{
             dt = dt > 3 ? 1 : dt; // If the next 
             let value = array[i];
             if (value == null) continue;
-            if (start == null) start = value;
-            end = value;
+            if (start == null && value != null) start = value;
+            if (value != null) end = value;
             sum += dt*value;
         }
         start = start == null ? 0 : start;
@@ -667,47 +727,71 @@ class SessionData{
         return {start: start, end: end, sum: sum, dt: timeTotal};
     }
 
-    getSessionDataAsJSON(){
+    getSessionDataAsJSON(asString = false){
         let data = {
-            startTime: this._timeStart,
-            laps: this._laps,
+            startTime: this.#timeStart,
+            endTime: this.#timeEnd,
+            laps: this.#laps,
             
-            time: this._accumulatedTime,
-            power: this._power,
-            cadence: this._cadence,
-            speed: this._speed,
-            accumulatedDistance: this._accumulatedDistance,
-            accumulatedEnergy: this._accumulatedEnergy,
-            heartRate: this._hr
+            time: this.#accumulatedTime,
+            power: this.#power,
+            cadence: this.#cadence,
+            speed: this.#speed,
+            accumulatedDistance: this.#accumulatedDistance,
+            accumulatedEnergy: this.#accumulatedEnergy,
+            heartRate: this.#hr
         }
-        return JSON.stringify(data);
+        if (asString) return JSON.stringify(data);
+        return data;
+    }
+}
+
+class UI{
+    #ui = document.createElement("div");
+    constructor(){
+        // TODO: oh holy shit fuck!! (dom with logic, graphics and css integrated)
+    }
+
+    get domEl(){
+        return this.#ui;
     }
 }
 
 class Session{
+    #sample = false;
+    #lastSampleTimestamp = {bike: null, hr: null};
+    #started = false;
+    #ended = false;
+
     constructor(){
         this.bike = new Bike();
         this.bike.setMode(Bike.MODES.FILTERED);
         this.hr = new HeartRate();
         this.steeringWheel = new SRAT();
         this.sessionData = new SessionData();
+        // this.ui = new UI(); // TODO
 
         this.sampleRateMS = 490; // From nyquist sampling theorem -> the frequency we are measuring is promissed at 1 pr. second. We should then sample check wheter or not to store the current signal 2 times that frequency so that we do not miss out on any one data-point. By setting it 10 ms before we are conservative.
-        this._sample = false;
-        this._lastSampleTimestamp = {bike: null, hr: null};
-        this._started = false;
-        this._ended = false;
         this.#sampleLoop(true);
     }
 
     get epochStartTime(){
         return this.sessionData.startTime;
     }
+    get started(){
+        return this.#started;
+    }
+    get ended(){
+        return this.#ended;
+    }
+    get paused(){
+        return this.#started && !this.#sample && !this.#ended;
+    }
 
     new(){
         this.sessionData = new SessionData();
-        this._started = false;
-        this._ended = false;
+        this.#started = false;
+        this.#ended = false;
     }
 
     start(){
@@ -716,20 +800,24 @@ class Session{
             return;
         }
         this.sessionData.start();
-        this._sample = true;
+        this.#sample = true;
+        this.#started = true;
     }
     pause(){
-        this._sample = false;
+        this.#sample = false;
+    }
+    lap(){
+        this.sessionData.lap();
     }
     resume(){
-        if(this._started){
-            this._sample = true;
+        if(this.#started){
+            this.#sample = true;
         }
     }
     stop(){
         this.sessionData.stop();
-        this._sample = false;
-        this._ended = true;
+        this.#sample = false;
+        this.#ended = true;
     }
     getStats(){
         let current = {
@@ -766,14 +854,14 @@ class Session{
             distance: { acc: distance.acc, phr: distance.phr },
             energy: { acc: energy.acc, phr: energy.phr }
         }
-        return {total: total, lap: lap, current: current};
+        return {startTime: this.sessionData.startTime, endTime: this.sessionData.endTime, total: total, lap: lap, current: current};
     }
 
     #sampleLoop(loop = false){
         if (loop) {
             setTimeout(() => this.#sampleLoop(), this.sampleRateMS);
         }
-        if (!this._sample){
+        if (!this.#sample){
             return;
         }        
         
@@ -788,7 +876,7 @@ class Session{
 
         }
 
-        if(this.bike.self != null && this.bike.timestamp != this._lastSampleTimestamp.bike){
+        if(this.bike.self != null && this.bike.timestamp != this.#lastSampleTimestamp.bike){
             this.sessionData.sample(
                 this.bike.power,
                 this.bike.cadence,
@@ -798,7 +886,7 @@ class Session{
                 hr,
                 accHr
             );
-            this._lastSampleTimestamp.bike = this.bike.timestamp;
+            this.#lastSampleTimestamp.bike = this.bike.timestamp;
         }     
         
         const WatchDogTimeout = {bike: 60*1000, hr: 6*1000}
@@ -806,6 +894,8 @@ class Session{
         if (this.hr.timestamp && now > this.hr.timestamp + WatchDogTimeout.hr) this.hr.onDisconnected();
     }
 }
+
+
 
 //////////////////////////////
 ///    Helper functions    ///
@@ -829,7 +919,7 @@ function convertTo16BitArray(x){
 }
 
 function Joule2Cal(joules){
-    return 0.239005736*joules;
+    return 0.2390057361*joules;
 }
 
 function formatTime(ms, displayMS = false){
@@ -872,16 +962,17 @@ function findClosestIndex(timeArray, timestamp){
     }
     return i;
 }
-function readThrough(dataArray, timeArray, startIndex = 0, endIndex = undefined, tolerance = 3){
-    // TODO
-    return {
-        start: '',
-        end: '',
-        max: '',
-        weightedSum: '',
-        time: {work: '', elapsed: ''}
-    };
-}
+
+// function readThrough(dataArray, timeArray, startIndex = 0, endIndex = undefined, tolerance = 3){
+//     // TODO
+//     return {
+//         start: '',
+//         end: '',
+//         max: '',
+//         weightedSum: '',
+//         time: {work: '', elapsed: ''}
+//     };
+// }
 
 function bluetooth_available(){
     return navigator.bluetooth;
@@ -893,43 +984,64 @@ function convertTimestampToISOString(timestamp) {
     return isoString.slice(0, 19) + 'Z'; // Remove milliseconds and return the formatted string
 }
 
+function convertTimestampToHMDhhmmString(timestamp){
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0'); // Months are 0-based
+    const day = date.getDate().toString().padStart(2, '0');
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${year}_${month}_${day}_${hours}${minutes}`;
+}
+
 function downloadTCX(sessionData){
     if (!(sessionData instanceof SessionData)) {
-        throw new Error(`Expected an instance of ${SessionData.name}, but received ${sessionData.constructor.name}`);
+        throw new Error(`Expected an instance of ${sessionData.name}, but received ${sessionData.constructor.name}`);
     }
 
-    // If there are no datapoint return before download
-    if(!sessionData._accumulatedTime.length) return;
-
+    const dataMatrix = sessionData.getSessionDataAsJSON();
+    
+    if(!dataMatrix.startTime){
+        alert("It does not seem like this session was ever started. Can not download a session that has not been completed.");
+        return false;
+    }
+    if(!dataMatrix.endTime){
+        alert("It does not seem like this session was ever ended. Can not download a session that has not ended.");
+        return false;
+    }
+    if(!dataMatrix.time.length) {
+        alert("Did not find any data in the session. Download Canceled.");
+        return false;
+    }
+    
     // START A TCX FILE CONTAINING THE SESSION
     let tcxData = `<?xml version="1.0" encoding="UTF-8"?>
     <TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2">
         <Activities>
             <Activity Sport="Biking">
-                <Id>`+convertTimestampToISOString(sessionData.timeStart)+`</Id>`;
+                <Id>`+convertTimestampToISOString(dataMatrix.timeStart)+`</Id>`;
     
     // LOOP OVER ALL LAPS
     let trackpointIndex = 0; // Global index of all the sample points
-    for(var i = 0; i < sessionData.laps.length; i++){
-        // TODO: handle null events
-        const dtStart = sessionData.laps[i];
-        const dtEnd = i < sessionData.laps.length-1 ? sessionData.laps[i+1] : sessionData.timeEnd - sessionData.timeStart;
+    for(var i = 0; i < dataMatrix.laps.length; i++){
+        const dtStart = dataMatrix.laps[i]; // [ms]
+        const dtEnd = i < dataMatrix.laps.length-1 ? Math.floor(dataMatrix.laps[i+1]*1000) : dataMatrix.timeEnd - dataMatrix.timeStart; // [ms]
         
-        const startTime = sessionData.timeStart + dtStart;
-        const endTime = (i < sessionData.laps.length-1) ? startTime+sessionData.laps[i+1] : sessionData.timeEnd;    
-        const lapTimeSeconds = Math.round((endTime - startTime)/1000);
+        const startTime = dataMatrix.timeStart + dtStart;
+        const endTime = (i < dataMatrix.laps.length-1) ? startTime+Math.floor(dataMatrix.laps[i+1]*1000) : dataMatrix.timeEnd;    
+        const lapTimeSeconds = Math.round((endTime - startTime)/1000); // [s]
 
         const startIndex = trackpointIndex;
-        const endIndex = i < sessionData.laps.length-1 ? findClosestIndex(sessionData._accumulatedTime, dtEnd): sessionData._accumulatedTime.length-1;
+        const endIndex = i < dataMatrix.laps.length-1 ? findClosestIndex(dataMatrix.time, (dtEnd/1000)): dataMatrix.time.length-1;
 
-        const startDistance = sessionData._accumulatedDistance[startIndex];
-        const endDistance = sessionData._accumulatedDistance[endIndex];
+        const startDistance = dataMatrix.accumulatedDistance[startIndex];
+        const endDistance = dataMatrix.accumulatedDistance[endIndex];
         const distance = Math.round((endDistance-startDistance));
 
-        const startEnergy = sessionData._accumulatedEnergy[startIndex];
-        const endEnergy = sessionData._accumulatedEnergy[endIndex];
+        const startEnergy = dataMatrix.accumulatedEnergy[startIndex];
+        const endEnergy = dataMatrix.accumulatedEnergy[endIndex];
 
-        const calories = Math.round((endEnergy-startEnergy)*0.2390057361); // kJoule to kCal convertion
+        const calories = Math.round(Joule2Cal(endEnergy-startEnergy)); // [kJoule] -> [kCal] convertion
 
         // START A LAP CONSISTING OF A TRACK
         let lap = `<Lap StartTime="`+convertTimestampToISOString(startTime)+`">
@@ -938,29 +1050,26 @@ function downloadTCX(sessionData){
                     <Calories>`+calories+`</Calories>
                     <Track>`;
 
-        // ADD ALL TRACK POINTS
-        let dt = sessionData._accumulatedTime[trackpointIndex];
+        // ADD ALL TRACK POINTS IN THE LAP
+        let dt = Math.floor(dataMatrix.time[trackpointIndex]*1000); // [s] -> [ms] convertion
         while(dt <= dtEnd){            
             let trackpoint = `<Trackpoint>
                 <Time>`+convertTimestampToISOString(startTime+dt)+`</Time>`;
             
-            // CONSIDER: implementing
-            // if (false){ 
-            //     trackpoint += `<AltitudeMeters>0</AltitudeMeters>`;
-            // }
+            // CONSIDER implementing: <AltitudeMeters>, <Position>-><LatitudeDegrees><LongitudeDegrees>
 
-            if(sessionData.hr[trackpointIndex] != null){
-                trackpoint += `<HeartRateBpm>`+Math.round(sessionData.hr[trackpointIndex])+`</HeartRateBpm>`;
+            if(dataMatrix.hr[trackpointIndex] != null){
+                trackpoint += `<HeartRateBpm>`+Math.round(dataMatrix.hr[trackpointIndex])+`</HeartRateBpm>`;
             }
-            if(sessionData._accumulatedDistance[trackpointIndex] != null){
-                let trpt_distance = Math.floor((sessionData._accumulatedDistance[trackpointIndex]-startDistance));
+            if(dataMatrix.accumulatedDistance[trackpointIndex] != null){
+                let trpt_distance = Math.floor((dataMatrix.accumulatedDistance[trackpointIndex]-startDistance));
                 trackpoint += `<DistanceMeters>`+trpt_distance+`</DistanceMeters>`;
             }
-            if(sessionData._cadence[trackpointIndex] != null){
-                trackpoint += `<Cadence>`+Math.round(sessionData._cadence[trackpointIndex])+`</Cadence>`;
+            if(dataMatrix.cadence[trackpointIndex] != null){
+                trackpoint += `<Cadence>`+Math.round(dataMatrix.cadence[trackpointIndex])+`</Cadence>`;
             }
-            if(sessionData.pwr[trackpointIndex] != null){
-                trackpoint += `<Watts>`+Math.round(sessionData.pwr[trackpointIndex])+`</Watts>`;
+            if(dataMatrix.power[trackpointIndex] != null){
+                trackpoint += `<Watts>`+Math.round(dataMatrix.power[trackpointIndex])+`</Watts>`;
             }
             
             trackpoint += `</Trackpoint>`;
@@ -968,11 +1077,11 @@ function downloadTCX(sessionData){
 
             // Iterate
             trackpointIndex++;            
-            if(trackpointIndex > sessionData._accumulatedTime.length) {
+            if(trackpointIndex >= dataMatrix.time.length) {
                 console.error("Download data corrupted");
-                break; // Something has gone wrong at this point [Should never happen]
+                break; // Something has gone terrible wrong at this point (Should, however, never happen. And we can be certain since sessionData is asserted to type SessionData, where the sample technique is 'protected')
             }
-            dt = sessionData._accumulatedTime[trackpointIndex];            
+            dt = Math.floor(dataMatrix.time[trackpointIndex]*1000);            
         }
 
         // END OF LAP
@@ -988,12 +1097,13 @@ function downloadTCX(sessionData){
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'activity.tcx'; // File name
+    a.download = convertTimestampToHMDhhmmString(dataMatrix.startTime)+'_activity.tcx'; // File name (TODO: add date)
     document.body.appendChild(a);
     a.click();
 
     // Cleanup
     window.URL.revokeObjectURL(url);
+    return true;
 }
 
-export {Session, SessionData, Bike, HeartRate, downloadTCX, Joule2Cal, formatTime, findClosestIndex, bluetooth_available}
+export {Session, SessionData, Bike, HeartRate, downloadTCX, Joule2Cal, formatTime, bluetooth_available} // {SRAT}
