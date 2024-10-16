@@ -289,15 +289,15 @@ document.getElementById("toggle_graphics").addEventListener("click", function(){
 document.getElementById("session_data").addEventListener("click", function(){
     const tableTitleEl = document.getElementById("session_data_lap_total");
     if(dataDisplayWatchdog.selectedMode == "total"){
-        dataDisplayWatchdog.selectedMode = "lap"
+        dataDisplayWatchdog.selectedMode = "lap";
         tableTitleEl.innerHTML = "Lap";
     }
     else if(dataDisplayWatchdog.selectedMode == "lap"){
-        dataDisplayWatchdog.selectedMode = "total"
+        dataDisplayWatchdog.selectedMode = "total";
         tableTitleEl.innerHTML = "Total";
     }   
     else {
-        dataDisplayWatchdog.selectedMode = "total"
+        dataDisplayWatchdog.selectedMode = "total";
     }
 });
 

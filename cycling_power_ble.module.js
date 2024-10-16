@@ -984,7 +984,7 @@ function convertTimestampToISOString(timestamp) {
     return isoString.slice(0, 19) + 'Z'; // Remove milliseconds and return the formatted string
 }
 
-function convertTimestampToHMDhhmmString(timestamp){
+function convertTimestampToYMDhhmmString(timestamp){
     const date = new Date(timestamp);
     const year = date.getFullYear();
     const month = (date.getMonth() + 1).toString().padStart(2, '0'); // Months are 0-based
@@ -1097,7 +1097,7 @@ function downloadTCX(sessionData){
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = convertTimestampToHMDhhmmString(dataMatrix.startTime)+'_activity.tcx'; // File name (TODO: add date)
+    a.download = convertTimestampToYMDhhmmString(dataMatrix.startTime)+'_activity.tcx'; // File name (TODO: add date)
     document.body.appendChild(a);
     a.click();
 
