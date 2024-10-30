@@ -134,7 +134,7 @@ class Bike {
             let payloadIndex = 4;
             for(var i = 0; i < flagIndex; i++){
                 if(flag[i]){
-                    payloadIndex += Bike.FLAG_FIELD[this.keys(Bike.FLAG_FIELD)[i]].fieldSize; 
+                    payloadIndex += Bike.FLAG_FIELD[Object.keys(Bike.FLAG_FIELD)[i]].fieldSize; 
                 }
             }
             return payloadIndex;
