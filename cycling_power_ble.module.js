@@ -508,6 +508,10 @@ class SessionData{
     #accumulatedDistance = [];
     #accumulatedEnergy = [];
     #accumulatedHeartBeats = [];
+    #lat = [];
+    #long = [];
+    #incline = [];
+
 
     // Storing for easy retrieving without searching
     #maxPwr = 0;
@@ -746,17 +750,6 @@ class SessionData{
     }
 }
 
-class UI{
-    #ui = document.createElement("div");
-    constructor(){
-        // TODO: oh holy shit fuck!! (dom with logic, graphics and css integrated)
-    }
-
-    get domEl(){
-        return this.#ui;
-    }
-}
-
 class Session{
     #sample = false;
     #lastSampleTimestamp = {bike: null, hr: null};
@@ -895,10 +888,54 @@ class Session{
     }
 }
 
+class UI{
+
+    #sensorInterface = document.createElement("div");
+    #mainUI = document.createElement("div");
+    #leftUI = document.createElement("div");
+    #rightUI = document.createElement("div");
+
+    #settings = {};
+    #session = new Session();
+
+    constructor(settings = undefined){
+        // TODO: oh holy shit fuck!! (dom with logic, graphics and css integrated)
+        this.#setSettings(settings);
+    }
+
+    start(){
+
+    }
+    stop(){
+
+    }
+    pause(){
+
+    }
+    save(){
+        
+    }
+
+    #setSettings(){
+        if(settings != undefined){
+            // Check if settings is formatted correctly then apply
+
+        }
+    }
+
+    setZIndex(){
+        // TODO
+    }
+
+    get mainUI(){
+        return this.#mainUI;
+    }
+}
+
 
 
 //////////////////////////////
-///    Helper functions    ///
+///    Helper functions    /// CORE
 //////////////////////////////
 
 function convertTo16BitArray(x){
