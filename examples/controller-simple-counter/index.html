@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zwift Counter Example</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 24px;
+            background: #15171c;
+            color: #e6e8ec;
+            font-family: system-ui, "Segoe UI", sans-serif;
+            text-align: center;
+        }
+        button {
+            background: #fc6719;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 16px;
+            font: inherit;
+            cursor: pointer;
+        }
+        #devices { color: #8b93a3; margin: 10px 0 24px; min-height: 1.2em; }
+        .gear {
+            display: inline-block;
+            padding: 16px 48px;
+            border-radius: 16px;
+            background: #1f232b;
+            border: 2px solid #333a46;
+        }
+        .gear .label { color: #8b93a3; text-transform: uppercase; letter-spacing: 2px; }
+        .gear .value { font-size: 120px; font-weight: 700; line-height: 1; color: #fc6719; }
+        .gear .hint { color: #8b93a3; font-size: 13px; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 110px);
+            gap: 12px;
+            justify-content: center;
+            margin-top: 28px;
+        }
+        .counter {
+            background: #1f232b;
+            border: 2px solid #333a46;
+            border-radius: 10px;
+            padding: 12px 6px;
+            transition: background 0.05s;
+        }
+        .counter .value { font-size: 32px; font-weight: 700; }
+        .counter .label { color: #8b93a3; }
+        .counter.down { background: #3ddc84; color: #08210f; border-color: #3ddc84; }
+        .counter.down .label { color: #08210f; }
+    </style>
+</head>
+<body>
+    <h1>Zwift Counter</h1>
+    <button id="connect">+ Connect clicker</button>
+    <div id="devices">No devices connected</div>
+
+    <div class="gear">
+        <div class="label">Gear</div>
+        <div class="value" id="gear">0</div>
+        <div class="hint">Shift up R = +1 &nbsp;·&nbsp; Shift up L = −1</div>
+    </div>
+
+    <div class="grid" id="counters"></div>
+
+    <script type="module">
+        import { ZwiftControllerGroup, Buttons } from "../../src/zwift_controller.module.js";
+
+        // Both clickers are combined into one controller.
+        const controller = new ZwiftControllerGroup();
+
+        let gear = 0;
+        const counted = [
+            [Buttons.A, "A"], [Buttons.B, "B"], [Buttons.Y, "Y"], [Buttons.Z, "Z"],
+            [Buttons.LEFT, "Left"], [Buttons.RIGHT, "Right"], [Buttons.UP, "Up"], [Buttons.DOWN, "Down"],
+        ];
+        const counts = new Map(counted.map(([button]) => [button, 0]));
+
+        // Build the counter tiles
+        const tiles = new Map();
+        for (const [button, label] of counted) {
+            const el = document.createElement("div");
+            el.className = "counter";
+            el.innerHTML = `<div class="value">0</div><div class="label">${label}</div>`;
+            document.getElementById("counters").appendChild(el);
+            tiles.set(button, el);
+        }
+
+        // Connecting must happen from a click (browser rule)
+        document.getElementById("connect").addEventListener("click", async () => {
+            try {
+                await controller.requestDevice();
+            } catch (e) {
+                console.warn(e);
+            }
+        });
+
+        function renderDevices() {
+            const list = controller.devices.map((d) =>
+                `${d.name} (${d.connected ? (d.battery !== null ? d.battery + "%" : "connected") : "disconnected"})`);
+            document.getElementById("devices").textContent = list.join(" · ") || "No devices connected";
+        }
+        for (const type of ["deviceadded", "connected", "disconnected", "battery"]) controller.on(type, renderDevices);
+
+        // Game loop: poll the controller once per frame
+        function frame() {
+            controller.update();
+
+            gear += controller.pressCount(Buttons.SHIFT_UP_R);
+            gear -= controller.pressCount(Buttons.SHIFT_UP_L);
+            document.getElementById("gear").textContent = gear;
+
+            for (const [button, el] of tiles) {
+                counts.set(button, counts.get(button) + controller.pressCount(button));
+                el.querySelector(".value").textContent = counts.get(button);
+                el.classList.toggle("down", controller.isDown(button));
+            }
+
+            requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+    </script>
+</body>
+</html>

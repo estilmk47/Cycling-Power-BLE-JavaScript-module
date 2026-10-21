@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RIDE Session Guide</title>
+<meta name="description" content="How to save, share, edit and store cycling sessions in the RIDE binary format, with a built-in session inspector.">
+<style>
+    :root {
+        --bg: #f7f7f5;
+        --surface: #ffffff;
+        --text: #1d1d1f;
+        --muted: #5f6368;
+        --border: #dcdcd7;
+        --accent: #5727b3;
+        --accent-soft: #ece5fb;
+        --code-bg: #f0efeb;
+        --ok: #1e7d32;
+        --bad: #b3261e;
+        --c-header: #5727b3;
+        --c-meta: #0b7a75;
+        --c-events: #b26a00;
+        --c-bike: #2430ab;
+        --c-hr: #c2185b;
+        --c-crc: #5f6368;
+    }
+    @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+            --bg: #161618;
+            --surface: #1f1f23;
+            --text: #ececf0;
+            --muted: #a1a1aa;
+            --border: #34343a;
+            --accent: #a68bff;
+            --accent-soft: #2b2342;
+            --code-bg: #26262b;
+            --ok: #7bd389;
+            --bad: #ff8a80;
+            --c-header: #a68bff;
+            --c-meta: #4fd1c5;
+            --c-events: #f6ad55;
+            --c-bike: #8fa2ff;
+            --c-hr: #f48fb1;
+            --c-crc: #a1a1aa;
+        }
+    }
+    :root[data-theme="dark"] {
+        --bg: #161618;
+        --surface: #1f1f23;
+        --text: #ececf0;
+        --muted: #a1a1aa;
+        --border: #34343a;
+        --accent: #a68bff;
+        --accent-soft: #2b2342;
+        --code-bg: #26262b;
+        --ok: #7bd389;
+        --bad: #ff8a80;
+        --c-header: #a68bff;
+        --c-meta: #4fd1c5;
+        --c-events: #f6ad55;
+        --c-bike: #8fa2ff;
+        --c-hr: #f48fb1;
+        --c-crc: #a1a1aa;
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    main { max-width: 860px; margin: 0 auto; padding: 32px 16px 80px; }
+    h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 8px; }
+    h2 { margin: 48px 0 12px; font-size: 1.35rem; }
+    h3 { margin: 24px 0 8px; font-size: 1.05rem; }
+    p.lead { color: var(--muted); font-size: 1.1rem; margin-top: 0; }
+    a { color: var(--accent); }
+    code, pre, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 0.9em; }
+    code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+    pre { background: var(--code-bg); padding: 14px 16px; border-radius: 8px; overflow-x: auto; line-height: 1.5; }
+    pre code { background: none; padding: 0; }
+    nav.toc { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 20px; margin: 24px 0; }
+    nav.toc ol { margin: 4px 0; padding-left: 20px; }
+    .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 20px 0; }
+    .fact { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+    .fact strong { display: block; font-size: 1.05rem; }
+    .fact span { color: var(--muted); font-size: 0.9rem; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.95rem; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; }
+    .table-wrap { overflow-x: auto; }
+    .callout { background: var(--accent-soft); border-radius: 10px; padding: 12px 16px; margin: 16px 0; }
+
+    /* Layout diagram */
+    .layout { display: flex; flex-direction: column; gap: 4px; margin: 16px 0; }
+    .block { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 6px; border-left: 6px solid; background: var(--surface); flex-wrap: wrap; }
+    .block small { color: var(--muted); }
+    .b-header { border-color: var(--c-header); }
+    .b-meta { border-color: var(--c-meta); }
+    .b-events { border-color: var(--c-events); }
+    .b-bike { border-color: var(--c-bike); }
+    .b-hr { border-color: var(--c-hr); }
+    .b-crc { border-color: var(--c-crc); }
+
+    /* Inspector */
+    .inspector { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    #drop { border: 2px dashed var(--border); border-radius: 10px; padding: 14px; text-align: center; color: var(--muted); margin-bottom: 10px; }
+    #drop.over { border-color: var(--accent); background: var(--accent-soft); }
+    textarea { width: 100%; min-height: 90px; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-family: ui-monospace, Consolas, monospace; font-size: 0.85rem; }
+    .buttons { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+    button, .file-label { font: inherit; padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .file-label input { display: none; }
+    #result { margin-top: 12px; }
+    .status { padding: 8px 12px; border-radius: 8px; margin: 8px 0; }
+    .status.ok { color: var(--ok); border: 1px solid var(--ok); }
+    .status.bad { color: var(--bad); border: 1px solid var(--bad); }
+    .chunks { display: flex; height: 22px; border-radius: 6px; overflow: hidden; margin: 10px 0 4px; }
+    .chunks div { min-width: 3px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.85rem; color: var(--muted); }
+    .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; }
+    footer { margin-top: 64px; color: var(--muted); font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<main>
+    <h1>Working with RIDE session files</h1>
+    <p class="lead">A guide to saving, sharing, editing and storing the raw data of a cycling session recorded with
+        <code>session_tracker.module.js</code> – with a built-in inspector at the bottom of the page.</p>
+
+    <nav class="toc" aria-label="Contents">
+        <ol>
+            <li><a href="#what">What is a RIDE session?</a></li>
+            <li><a href="#save">Saving a session</a></li>
+            <li><a href="#share">Copy &amp; paste between applications</a></li>
+            <li><a href="#edit">Loading and editing a session</a></li>
+            <li><a href="#database">Storing sessions in a database</a></li>
+            <li><a href="#layout">What is inside the file</a></li>
+            <li><a href="#inspector">Session inspector</a></li>
+            <li><a href="#troubleshooting">Troubleshooting</a></li>
+        </ol>
+    </nav>
+
+    <h2 id="what">1. What is a RIDE session?</h2>
+    <p>When you record a ride, every data point from your bike and heart-rate monitor is kept: power, cadence, speed,
+        distance, trainer resistance, heart rate and the RR intervals between heart beats, plus every start, pause,
+        resume, lap and stop. <strong>RIDE</strong> is the compact binary format that holds all of this without losing
+        anything, so a session can be saved, moved to another application, edited and saved again.</p>
+    <div class="facts">
+        <div class="fact"><strong>.ride</strong><span>file extension</span></div>
+        <div class="fact"><strong>~120 kB / hour</strong><span>at 1 sample per second</span></div>
+        <div class="fact"><strong>Checksum</strong><span>detects damaged or incomplete data</span></div>
+        <div class="fact"><strong>Base64 text</strong><span>for copy/paste and text-only storage</span></div>
+    </div>
+    <p>Use <strong>TCX</strong> when you want to upload a ride to Strava, Garmin Connect or TrainingPeaks. Use
+        <strong>RIDE</strong> when you want to keep the complete raw data for your own applications.</p>
+
+    <h2 id="save">2. Saving a session</h2>
+    <p>Any <code>Session</code> (for example <code>tracker.session</code>) can be turned into RIDE data:</p>
+<pre><code>import { SessionTracker } from './src/session_tracker.module.js';
+
+const tracker = new SessionTracker({ bike, heartRateMonitor });
+// … tracker.start(), tracker.lap(), tracker.stop() …
+
+tracker.session.downloadBinary();          // saves e.g. "2026-10-16_1830_ride.ride"
+const bytes = tracker.session.toBinary();  // Uint8Array – for uploads and databases
+const text  = tracker.session.toBase64();  // string – for clipboard, JSON documents, localStorage</code></pre>
+
+    <h2 id="share">3. Copy &amp; paste between applications</h2>
+    <p>The base64 text is plain ASCII, so it survives e-mail, chat, clipboards and text fields. Line breaks and
+        spaces added along the way are ignored when reading.</p>
+<pre><code>// Application A
+await navigator.clipboard.writeText(session.toBase64());
+
+// Application B – accepts base64 or JSON
+import { Session } from './src/session_tracker.module.js';
+const session = Session.parse(pastedText);</code></pre>
+    <p>The text starts with <code>UklERQ</code> (base64 for "RIDE"), which makes RIDE data easy to recognise.</p>
+
+    <h2 id="edit">4. Loading and editing a session</h2>
+<pre><code>const session = await Session.fromFile(fileInput.files[0]);  // .ride, base64 text or JSON
+// or: Session.fromBinary(bytes), Session.fromBase64(text)
+
+session.meta.title = 'Tuesday intervals';   // free-form metadata
+session.insertLap(15 * 60 * 1000);          // add a lap marker 15 minutes in
+session.removeLap(2);                       // merge lap 2 into lap 1
+session.crop(60_000, session.duration - 30_000); // cut the warm-up minute and the last 30 s
+
+console.log(session.getStats(), session.getLapStats());
+session.downloadBinary();                   // save the edited version
+session.downloadTCX();                      // or export it for Strava</code></pre>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Operation</th><th>What it does</th></tr></thead>
+            <tbody>
+                <tr><td><code>meta</code></td><td>Any JSON object: title, notes, athlete data, game level, …</td></tr>
+                <tr><td><code>insertLap(t)</code></td><td>Adds a lap marker at <code>t</code> ms after the start; returns the new lap index</td></tr>
+                <tr><td><code>removeLap(i)</code></td><td>Removes the marker that starts lap <code>i</code> (≥ 1)</td></tr>
+                <tr><td><code>crop(from, to)</code></td><td>Keeps only that part of a stopped session; times and distance restart at 0</td></tr>
+                <tr><td><code>bikeSamples</code>, <code>heartRateSamples</code>, <code>events</code></td><td>Plain arrays you can change directly – call <code>session.invalidate()</code> afterwards so statistics are recalculated</td></tr>
+                <tr><td><code>clone()</code></td><td>Independent copy, e.g. to keep the original while editing</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p>Saving, loading and saving again produces identical bytes, so repeated edits never degrade the data.</p>
+
+    <h2 id="database">5. Storing sessions in a database</h2>
+    <p>Store the bytes in a binary column (<code>BYTEA</code> in PostgreSQL, <code>BLOB</code> in MySQL/SQLite) and
+        copy the values you want to search or sort by into normal columns:</p>
+<pre><code>const stats = session.getStats();
+await fetch('/api/sessions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/octet-stream',
+               'X-Started-At': new Date(session.startTime).toISOString(),
+               'X-Distance-M': String(stats.distance) },
+    body: session.toBinary(),
+});</code></pre>
+    <p>Text-only stores (document databases, <code>localStorage</code>) can hold <code>session.toBase64()</code>.
+        In the browser, IndexedDB stores the <code>Uint8Array</code> directly. A back end that is not JavaScript can
+        read the data with the short Python decoder in the <a href="binary-format.md">format specification</a>.</p>
+
+    <h2 id="layout">6. What is inside the file</h2>
+    <p>A fixed header, four chunks and a checksum. All numbers are little-endian. The complete byte-level
+        description is in <a href="binary-format.md">binary-format.md</a>.</p>
+    <div class="layout">
+        <div class="block b-header"><span><strong>Header</strong> · 24 bytes</span><small>"RIDE", version, header size, start time, end time</small></div>
+        <div class="block b-meta"><span><strong>META</strong></span><small>JSON metadata: title, notes, device names, your own fields</small></div>
+        <div class="block b-events"><span><strong>EVNT</strong> · 5 bytes / event</span><small>start, pause, resume, lap, stop with times</small></div>
+        <div class="block b-bike"><span><strong>BIKE</strong> · 4 + 4 bytes per channel / sample</span><small>power, cadence, speed, distance, resistance</small></div>
+        <div class="block b-hr"><span><strong>HRTR</strong> · 7 + 2 bytes per RR / sample</span><small>heart rate and RR intervals – its own timeline</small></div>
+        <div class="block b-crc"><span><strong>CRC-32</strong> · 4 bytes</span><small>checksum of everything above</small></div>
+    </div>
+    <p>Heart rate has its own timeline because heart-rate straps and bikes send data at different moments. Nothing is
+        lost by forcing one onto the other; the two are only combined when exporting to TCX.</p>
+
+    <h2 id="inspector">7. Session inspector</h2>
+    <p>Paste base64 text or drop a <code>.ride</code> file to see what it contains. Everything runs locally in this
+        page – no data is uploaded.</p>
+    <div class="inspector">
+        <div id="drop">Drop a .ride file here</div>
+        <label for="input" class="mono" style="font-size:0.85rem;color:var(--muted)">Base64 text</label>
+        <textarea id="input" placeholder="UklERQEAGAAA…" spellcheck="false"></textarea>
+        <div class="buttons">
+            <button class="primary" id="inspect">Inspect</button>
+            <label class="file-label">Choose file…<input type="file" id="file" accept=".ride,.txt"></label>
+            <button id="example">Load example</button>
+        </div>
+        <div id="result" aria-live="polite"></div>
+    </div>
+
+    <h2 id="troubleshooting">8. Troubleshooting</h2>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Message</th><th>Cause and fix</th></tr></thead>
+            <tbody>
+                <tr><td>Not a RIDE session</td><td>The data does not start with "RIDE". Check that the whole text was copied, or that the file is a .ride file and not a .tcx.</td></tr>
+                <tr><td>Checksum mismatch</td><td>Part of the data is missing or changed – usually a clipped copy/paste. Copy it again. For recovery, <code>Session.fromBinary(bytes, { verifyChecksum: false })</code> skips the check.</td></tr>
+                <tr><td>Unsupported RIDE format version</td><td>The file was written by a newer version of the library. Update the library.</td></tr>
+                <tr><td>The text is not valid base64</td><td>The pasted text contains other characters, for example quotes or a message around it.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <footer>Part of the <a href="https://github.com/estilmk47/Cycling-Power-BLE-JavaScript-module">Cycling-Power-BLE-JavaScript-module</a> project · MIT licence</footer>
+</main>
+
+<script>
+// Self-contained RIDE v1 decoder (independent of the library, so this page also works from file://).
+const EXAMPLE = 'UklERQEAGAAAAJD/j7d5QgAADQCQt3lCTUVUQRAAAAB7InRpdGxlIjoiRGVtbyJ9RVZOVA4AAAACAAAAAAAAAAHQBwAABUJJS0UcAAAAAQAAAA8AAADoAwAAAABIQwAAtEIAAPBBAAAIQUhSVFINAAAAAQAAAOgDAAB4AAEAAgAmi2U=';
+const CHANNELS = ['power', 'cadence', 'speed', 'distance', 'resistance'];
+const UNITS = { power: 'W', cadence: 'rpm', speed: 'km/h', distance: 'm', resistance: '' };
+const EVENTS = { 1: 'start', 2: 'pause', 3: 'resume', 4: 'lap', 5: 'stop' };
+const COLORS = { header: '--c-header', META: '--c-meta', EVNT: '--c-events', BIKE: '--c-bike', HRTR: '--c-hr', crc: '--c-crc' };
+
+const CRC_TABLE = new Uint32Array(256).map((_, n) => {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+    return c >>> 0;
+});
+function crc32(bytes) {
+    let crc = 0xFFFFFFFF;
+    for (let i = 0; i < bytes.length; i++) crc = CRC_TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+function fromBase64(text) {
+    let clean = text.trim();
+    if (clean.startsWith('data:')) clean = clean.slice(clean.indexOf(',') + 1);
+    clean = clean.replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/');
+    clean += '='.repeat((4 - (clean.length % 4)) % 4);
+    let binary;
+    try { binary = atob(clean); } catch { throw new Error('The text is not valid base64'); }
+    return Uint8Array.from(binary, (c) => c.charCodeAt(0));
+}
+
+function decode(bytes) {
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const ascii = (o) => String.fromCharCode(bytes[o], bytes[o + 1], bytes[o + 2], bytes[o + 3]);
+    if (bytes.length < 28 || ascii(0) !== 'RIDE') throw new Error('Not a RIDE session (missing "RIDE" signature)');
+    const version = view.getUint16(4, true);
+    if (version !== 1) throw new Error(`Unsupported RIDE format version ${version}`);
+    const headerSize = view.getUint16(6, true);
+    const bodyEnd = bytes.length - 4;
+    const storedCrc = view.getUint32(bodyEnd, true);
+    const actualCrc = crc32(bytes.subarray(0, bodyEnd));
+    const nan = (v) => (Number.isNaN(v) ? null : v);
+    const out = {
+        version, headerSize, size: bytes.length, crcOk: storedCrc === actualCrc, storedCrc,
+        startTime: nan(view.getFloat64(8, true)), endTime: nan(view.getFloat64(16, true)),
+        meta: {}, events: [], bike: [], heart: [], channels: [], chunks: [{ id: 'header', size: headerSize }],
+    };
+    let o = headerSize;
+    while (o < bodyEnd) {
+        if (o + 8 > bodyEnd) throw new Error('Truncated chunk header');
+        const id = ascii(o);
+        const len = view.getUint32(o + 4, true);
+        let p = o + 8;
+        if (p + len > bodyEnd) throw new Error(`Chunk ${id} extends past the end of the data`);
+        out.chunks.push({ id, size: len + 8 });
+        if (id === 'META') {
+            try { out.meta = JSON.parse(new TextDecoder().decode(bytes.subarray(p, p + len)) || '{}'); } catch { out.meta = { error: 'invalid JSON' }; }
+        } else if (id === 'EVNT') {
+            const n = view.getUint32(p, true);
+            for (let i = 0; i < n; i++) out.events.push({ t: view.getUint32(p + 4 + i * 5, true), type: EVENTS[bytes[p + 8 + i * 5]] ?? 'unknown' });
+        } else if (id === 'BIKE') {
+            const n = view.getUint32(p, true);
+            const mask = view.getUint32(p + 4, true);
+            const bits = [];
+            for (let b = 0; b < 32; b++) if (mask & (2 ** b)) bits.push(b);
+            out.channels = bits.map((b) => CHANNELS[b] ?? `bit ${b}`);
+            p += 8;
+            for (let i = 0; i < n; i++) {
+                const s = { t: view.getUint32(p, true) };
+                p += 4;
+                for (const b of bits) { s[CHANNELS[b] ?? `bit ${b}`] = nan(view.getFloat32(p, true)); p += 4; }
+                out.bike.push(s);
+            }
+        } else if (id === 'HRTR') {
+            const n = view.getUint32(p, true);
+            p += 4;
+            for (let i = 0; i < n; i++) {
+                const t = view.getUint32(p, true), hr = view.getUint16(p + 4, true), k = bytes[p + 6];
+                p += 7;
+                const rr = [];
+                for (let j = 0; j < k; j++) { rr.push(view.getUint16(p, true) * 1000 / 1024); p += 2; }
+                out.heart.push({ t, heartRate: hr || null, rr });
+            }
+        }
+        o += 8 + len;
+    }
+    out.chunks.push({ id: 'crc', size: 4 });
+    return out;
+}
+
+const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const time = (ms) => (ms == null ? '—' : new Date(ms).toLocaleString());
+const clock = (ms) => {
+    const s = Math.floor(ms / 1000);
+    return `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}.${String(ms % 1000).padStart(3, '0')}`;
+};
+const num = (v, d = 1) => (v == null ? '—' : Number.isInteger(v) ? v : v.toFixed(d));
+
+function render(d) {
+    const laps = 1 + d.events.filter((e) => e.type === 'lap').length;
+    const duration = d.endTime != null && d.startTime != null ? d.endTime - d.startTime : null;
+    const chunkBar = d.chunks.map((c) => `<div title="${esc(c.id)}: ${c.size} bytes" style="flex:${c.size};background:var(${COLORS[c.id] ?? '--muted'})"></div>`).join('');
+    const legend = d.chunks.map((c) => `<span><i style="background:var(${COLORS[c.id] ?? '--muted'})"></i>${esc(c.id)} ${c.size} B</span>`).join('');
+    const bikeRows = d.bike.slice(0, 20).map((s) => `<tr><td class="mono">${clock(s.t)}</td>${d.channels.map((c) => `<td>${num(s[c])}</td>`).join('')}</tr>`).join('');
+    const heartRows = d.heart.slice(0, 20).map((s) => `<tr><td class="mono">${clock(s.t)}</td><td>${num(s.heartRate)}</td><td>${s.rr.map((r) => r.toFixed(0)).join(', ') || '—'}</td></tr>`).join('');
+    const more = (n) => (n > 20 ? `<p style="color:var(--muted)">Showing 20 of ${n}.</p>` : '');
+    document.getElementById('result').innerHTML = `
+        <div class="status ${d.crcOk ? 'ok' : 'bad'}">${d.crcOk ? '✓ Valid RIDE v' + d.version + ' session, checksum OK' : '✗ Checksum mismatch – the data is damaged or incomplete'}</div>
+        <div class="chunks">${chunkBar}</div><div class="legend">${legend}</div>
+        <div class="table-wrap"><table>
+            <tr><th>Size</th><td>${d.size} bytes (${Math.ceil(d.size / 3) * 4} characters as base64)</td></tr>
+            <tr><th>Started</th><td>${time(d.startTime)}</td></tr>
+            <tr><th>Stopped</th><td>${time(d.endTime)}${duration != null ? ` (${clock(duration).slice(0, 8)})` : ''}</td></tr>
+            <tr><th>Samples</th><td>${d.bike.length} bike · ${d.heart.length} heart rate</td></tr>
+            <tr><th>Bike channels</th><td>${d.channels.map((c) => `${esc(c)}${UNITS[c] ? ` (${UNITS[c]})` : ''}`).join(', ') || '—'}</td></tr>
+            <tr><th>Laps</th><td>${laps}</td></tr>
+            <tr><th>Events</th><td>${d.events.map((e) => `${esc(e.type)} @ ${clock(e.t).slice(0, 8)}`).join(' · ') || '—'}</td></tr>
+            <tr><th>Metadata</th><td><code>${esc(JSON.stringify(d.meta))}</code></td></tr>
+        </table></div>
+        ${d.bike.length ? `<h3>Bike samples</h3><div class="table-wrap"><table><tr><th>t</th>${d.channels.map((c) => `<th>${esc(c)}</th>`).join('')}</tr>${bikeRows}</table></div>${more(d.bike.length)}` : ''}
+        ${d.heart.length ? `<h3>Heart-rate samples</h3><div class="table-wrap"><table><tr><th>t</th><th>bpm</th><th>RR (ms)</th></tr>${heartRows}</table></div>${more(d.heart.length)}` : ''}`;
+}
+
+function inspect(bytes) {
+    try {
+        render(decode(bytes));
+    } catch (error) {
+        document.getElementById('result').innerHTML = `<div class="status bad">✗ ${esc(error.message)}</div>`;
+    }
+}
+
+function inspectText() {
+    try { inspect(fromBase64(document.getElementById('input').value)); }
+    catch (error) { document.getElementById('result').innerHTML = `<div class="status bad">✗ ${esc(error.message)}</div>`; }
+}
+
+async function inspectFile(file) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const isBinary = bytes.length >= 4 && String.fromCharCode(...bytes.subarray(0, 4)) === 'RIDE';
+    if (isBinary) inspect(bytes);
+    else { document.getElementById('input').value = new TextDecoder().decode(bytes); inspectText(); }
+}
+
+document.getElementById('inspect').addEventListener('click', inspectText);
+document.getElementById('example').addEventListener('click', () => { document.getElementById('input').value = EXAMPLE; inspectText(); });
+document.getElementById('file').addEventListener('change', (e) => e.target.files[0] && inspectFile(e.target.files[0]));
+const drop = document.getElementById('drop');
+drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', (e) => {
+    e.preventDefault();
+    drop.classList.remove('over');
+    if (e.dataTransfer.files[0]) inspectFile(e.dataTransfer.files[0]);
+});
+</script>
+</body>
+</html>
