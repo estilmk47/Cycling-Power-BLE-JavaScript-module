@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spin Bike – basic UI example</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main id="content">
+        <header id="time">
+            <div title="Clock" id="clock_time">--:--:--</div>
+            <div title="Lap time" id="lap_time">--:--:--</div>
+            <div title="Total time" id="total_time">--:--:--</div>
+        </header>
+
+        <div id="message" role="status" hidden></div>
+
+        <section id="devices">
+            <div class="device" id="bike_card">
+                <img src="assets/Bike.png" alt="" width="48" height="48">
+                <div class="device_text">
+                    <div class="device_name" id="bike_name">Bike</div>
+                    <div class="device_status" id="bike_status">disconnected</div>
+                </div>
+                <div class="device_buttons">
+                    <button id="bike_connect">Connect</button>
+                    <button id="bike_simulate" class="secondary">Simulator</button>
+                </div>
+            </div>
+            <div class="device" id="hr_card">
+                <img src="assets/HeartRate.png" alt="" width="48" height="48">
+                <div class="device_text">
+                    <div class="device_name" id="hr_name">Heart Rate Monitor</div>
+                    <div class="device_status" id="hr_status">disconnected</div>
+                </div>
+                <div class="device_buttons">
+                    <button id="hr_connect">Connect</button>
+                    <button id="hr_simulate" class="secondary">Simulator</button>
+                </div>
+            </div>
+            <div id="capabilities"></div>
+        </section>
+
+        <section id="live">
+            <div class="tile"><img src="assets/Power.png" alt=""><span id="live_power">--</span><small>W</small></div>
+            <div class="tile"><img src="assets/Cadence.png" alt=""><span id="live_cadence">--</span><small>rpm</small></div>
+            <div class="tile"><img src="assets/Speed.png" alt=""><span id="live_speed">--</span><small>km/h</small></div>
+            <div class="tile"><img src="assets/HeartRate.png" alt=""><span id="live_hr">--</span><small>bpm</small></div>
+        </section>
+
+        <section id="graphics_canvas">
+            <canvas id="canvas"></canvas>
+        </section>
+
+        <section id="trainer_control">
+            <label for="control_mode">Trainer</label>
+            <select id="control_mode">
+                <option value="resistance">Resistance %</option>
+                <option value="power">ERG (target W)</option>
+                <option value="grade">Simulation (grade %)</option>
+            </select>
+            <input id="control_value" type="range">
+            <output id="control_output">--</output>
+        </section>
+
+        <section id="session_options">
+            <button id="start">START</button>
+            <button id="lap">LAP</button>
+            <button id="pause">PAUSE</button>
+            <button id="stop">STOP</button>
+            <button id="new">NEW</button>
+        </section>
+
+        <section id="session_data" title="Click to toggle total / lap">
+            <div id="session_data_lap_total">Total</div>
+            <div class="session_data_line">
+                <div><img src="assets/Settings.png" alt=""><span id="active_time">--</span></div>
+                <div id="elapsed_time">--</div>
+            </div>
+            <div class="session_data_line">
+                <div><img src="assets/Energy.png" alt=""><span id="energy">--</span></div>
+                <div id="calories">--</div>
+            </div>
+            <div class="session_data_line">
+                <div><img src="assets/Speed.png" alt=""><span id="distance">--</span></div>
+                <div id="speed">--</div>
+            </div>
+            <div class="session_data_line">
+                <div><img src="assets/HeartRate.png" alt=""><span id="heart_rate_max">--</span></div>
+                <div id="heart_rate_avg">--</div>
+            </div>
+            <div class="session_data_line">
+                <div><img src="assets/Cadence.png" alt=""><span id="cadence_max">--</span></div>
+                <div id="cadence_avg">--</div>
+            </div>
+            <div class="session_data_line">
+                <div><img src="assets/Power.png" alt=""><span id="power_max">--</span></div>
+                <div id="power_avg">--</div>
+            </div>
+        </section>
+
+        <section id="export">
+            <div class="export_buttons">
+                <button id="download_tcx">Download TCX</button>
+                <button id="download_ride">Download .ride</button>
+                <button id="copy_base64">Copy as text</button>
+            </div>
+            <textarea id="import_text" rows="3" placeholder="Paste a session (base64 or JSON) here, or choose a .ride file below"></textarea>
+            <div class="export_buttons">
+                <button id="import_paste">Load pasted session</button>
+                <input id="import_file" type="file" accept=".ride,.json,.txt">
+            </div>
+            <div id="loaded_info"></div>
+        </section>
+    </main>
+    <script type="module" src="main.js"></script>
+</body>
+</html>

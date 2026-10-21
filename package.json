@@ -1,0 +1,50 @@
+{
+  "name": "cycling-power-ble",
+  "version": "2.0.0",
+  "description": "Web Bluetooth drivers for smart bike trainers, spin bikes, power meters, heart-rate monitors and Zwift Click v2 / Ride controllers, plus a session tracker with TCX and binary export. Zero dependencies, no UI.",
+  "type": "module",
+  "exports": {
+    "./devices": "./src/ble_devices.module.js",
+    "./session": "./src/session_tracker.module.js",
+    "./zwift": "./src/zwift_controller.module.js",
+    "./src/*": "./src/*"
+  },
+  "files": [
+    "src",
+    "docs",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "keywords": [
+    "web-bluetooth",
+    "ble",
+    "ftms",
+    "fitness-machine",
+    "cycling-power",
+    "smart-trainer",
+    "spin-bike",
+    "heart-rate",
+    "tcx",
+    "cycling",
+    "zwift",
+    "zwift-click",
+    "zwift-ride",
+    "game-controller"
+  ],
+  "author": "estilmk47",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/estilmk47/Cycling-Power-BLE-JavaScript-module.git"
+  },
+  "bugs": {
+    "url": "https://github.com/estilmk47/Cycling-Power-BLE-JavaScript-module/issues"
+  },
+  "homepage": "https://github.com/estilmk47/Cycling-Power-BLE-JavaScript-module#readme",
+  "engines": {
+    "node": ">=19"
+  }
+}
